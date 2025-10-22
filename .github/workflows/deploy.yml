@@ -24,13 +24,28 @@ jobs:
           script: |
             cd /home/ec2-user
             if [ -d gitops_flutter_app ]; then
-              cd gitops_flutter_app && git pull
+              cd gitops_flutter_app
+              if [ -d .git ]; then
+                git reset --hard
+                git clean -fd
+                git pull
+              else
+                rm -rf gitops_flutter_app
+                git clone https://github.com/kartheekchadaram12/gitops-flutter-app.git
+                cd gitops_flutter_app
+              fi
             else
               git clone https://github.com/kartheekchadaram12/gitops-flutter-app.git
               cd gitops_flutter_app
             fi
+
+            # Stop & remove existing container
             docker stop flutter_app || true
             docker rm flutter_app || true
+
+            # Remove old Docker image to prevent conflicts
+            docker rmi gitops-flutter-app:latest || true
+
+            # Build and run new Docker container
             docker build -t gitops-flutter-app:latest .
             docker run -d -p 80:80 --name flutter_app gitops-flutter-app:latest
-
