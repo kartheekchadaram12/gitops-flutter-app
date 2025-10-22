@@ -1,0 +1,36 @@
+name: Deploy to Amazon Linux Server (GitOps)
+
+on:
+  workflow_run:
+    workflows: ["GitOps CI/CD for Flutter App"]
+    types:
+      - completed
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: SSH into EC2 and deploy
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/ec2-user
+            if [ -d gitops_flutter_app ]; then
+              cd gitops_flutter_app && git pull
+            else
+              git clone https://github.com/kartheekchadaram12/gitops-flutter-app.git
+              cd gitops_flutter_app
+            fi
+            docker stop flutter_app || true
+            docker rm flutter_app || true
+            docker build -t gitops-flutter-app:latest .
+            docker run -d -p 80:80 --name flutter_app gitops-flutter-app:latest
+
